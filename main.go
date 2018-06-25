@@ -3,23 +3,26 @@ package main
 import (
 	//"bufio"
 	"github.com/kataras/iris"
+	"github.com/kataras/iris/websocket"
 	"log"
 	"net"
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	//"time"
 )
 
 var (
-	RIGHT_M = 0
-	LEFT_M  = 0
+	RIGHT_M atomic.Value
+	LEFT_M  atomic.Value
 )
 
 func SocketServer(port int) {
 
-	listen, err := net.Listen("tcp4", ":"+strconv.Itoa(port))
-	defer listen.Close()
+	ServerAddr, err := net.ResolveUDPAddr("udp", ":"+strconv.Itoa(port))
+	ServerConn, err := net.ListenUDP("udp", ServerAddr)
+	defer ServerConn.Close()
 	if err != nil {
 		log.Fatalf("Socket listen port %d failed,%s", port, err)
 		os.Exit(1)
@@ -27,34 +30,26 @@ func SocketServer(port int) {
 	log.Printf("Begin listen port: %d", port)
 
 	for {
-		conn, err := listen.Accept()
+		buffer := make([]byte, 32)
+		_, clientAddr, err := ServerConn.ReadFromUDP(buffer)
+		log.Println("RECV: " + string(buffer))
 		if err != nil {
 			log.Fatalln(err)
 			continue
 		}
-		go handler(conn)
+		go handler(ServerConn, clientAddr, buffer)
 	}
 
 }
 
-func handler(conn net.Conn) {
+func handler(conn *net.UDPConn, addr *net.UDPAddr, r []byte) {
 
-	defer conn.Close()
-
-	var (
-	//r   = bufio.NewReader(conn)
-	//w = bufio.NewWriter(conn)
-	)
-
-	tmp := make([]byte, 1024)
+	tmp := make([]byte, 32)
 	// SCHEMA 0,0
-	copy(tmp[:], []byte(strconv.Itoa(LEFT_M)+","+strconv.Itoa(RIGHT_M)))
-	log.Println(len(tmp))
-	conn.Write([]byte(tmp))
+	copy(tmp[:], []byte(strconv.Itoa(LEFT_M.Load().(int))+","+strconv.Itoa(RIGHT_M.Load().(int))))
+	conn.WriteToUDP(tmp, addr)
+	log.Println("RECEIVED: " + string(r))
 	log.Println("SENT: " + string(tmp))
-	buffer := make([]byte, 1024)
-	conn.Read(buffer)
-	log.Println("RECEIVED: " + string(buffer))
 }
 
 func isTransportOver(data string) (over bool) {
@@ -62,11 +57,28 @@ func isTransportOver(data string) (over bool) {
 	return
 }
 
+func setupWebsocket(app *iris.Application) {
+	ws := websocket.New(websocket.Config{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+	})
+
+	app.Get("/echo", ws.Handler())
+
+	app.Any("/iris-ws.js", func(ctx iris.Context) {
+		ctx.Write(websocket.ClientSource)
+	})
+}
+
 func main() {
 
-	port := 3324
+	port := 3322
+	LEFT_M.Store(0)
+	RIGHT_M.Store(0)
 
 	app := iris.New()
+	setupWebsocket(app)
+
 	app.Get("/", func(ctx iris.Context) {
 		ctx.Writef(`
           <html> 
@@ -88,14 +100,30 @@ func main() {
             </table>
             <button type='submit'>Send Command</button>
             </form>
+            Round Trip Latancy: <pre id="output"></pre>
+            <script src="/iris-ws.js"></script>
+            <script>
+    var scheme = document.location.protocol == "https:" ? "wss" : "ws";
+    var port = document.location.port ? (":" + document.location.port) : "";
+    // see app.Get("/echo", ws.Handler()) on main.go
+    var wsURL = scheme + "://" + document.location.hostname + port+"/echo";
+var socket = new Ws(wsURL)
+
+    socket.On("latancy", function (msg) {
+        document.getElementById("output").innerHTML = msg;
+    });
+            </script>
             </body>
-          </html>`, LEFT_M, RIGHT_M, LEFT_M, RIGHT_M)
+          </html>`, LEFT_M.Load().(int), RIGHT_M.Load().(int), LEFT_M.Load().(int), RIGHT_M.Load().(int))
 	})
 
 	app.Post("/", func(ctx iris.Context) {
 
-		LEFT_M, _ = ctx.PostValueInt("LEFT")
-		RIGHT_M, _ = ctx.PostValueInt("RIGHT")
+		LEFT_M_tmp, _ := ctx.PostValueInt("LEFT")
+		LEFT_M.Store(LEFT_M_tmp)
+
+		RIGHT_M_tmp, _ := ctx.PostValueInt("RIGHT")
+		RIGHT_M.Store(RIGHT_M_tmp)
 		ctx.Redirect("/", 302)
 	})
 	go app.Run(iris.Addr(":25565"))
