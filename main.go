@@ -16,6 +16,7 @@ import (
 var (
 	RIGHT_M atomic.Value
 	LEFT_M  atomic.Value
+	LATANCY  atomic.Value
 )
 
 func SocketServer(port int) {
@@ -32,7 +33,6 @@ func SocketServer(port int) {
 	for {
 		buffer := make([]byte, 32)
 		_, clientAddr, err := ServerConn.ReadFromUDP(buffer)
-		log.Println("RECV: " + string(buffer))
 		if err != nil {
 			log.Fatalln(err)
 			continue
@@ -48,6 +48,10 @@ func handler(conn *net.UDPConn, addr *net.UDPAddr, r []byte) {
 	// SCHEMA 0,0
 	copy(tmp[:], []byte(strconv.Itoa(LEFT_M.Load().(int))+","+strconv.Itoa(RIGHT_M.Load().(int))))
 	conn.WriteToUDP(tmp, addr)
+	spStr := strings.Split(string(r), ",")
+        //latancy, _ := strconv.ParseFloat(spStr[len(spStr)-1], 64)
+        LATANCY.Store(spStr[len(spStr)-1])
+
 	log.Println("RECEIVED: " + string(r))
 	log.Println("SENT: " + string(tmp))
 }
@@ -100,7 +104,7 @@ func main() {
             </table>
             <button type='submit'>Send Command</button>
             </form>
-            Round Trip Latancy: <pre id="output"></pre>
+            Round Trip Latancy: <pre id="output">%s</pre>
             <script src="/iris-ws.js"></script>
             <script>
     var scheme = document.location.protocol == "https:" ? "wss" : "ws";
@@ -114,7 +118,7 @@ var socket = new Ws(wsURL)
     });
             </script>
             </body>
-          </html>`, LEFT_M.Load().(int), RIGHT_M.Load().(int), LEFT_M.Load().(int), RIGHT_M.Load().(int))
+          </html>`, LEFT_M.Load().(int), RIGHT_M.Load().(int), LEFT_M.Load().(int), RIGHT_M.Load().(int), LATANCY.Load().(string))
 	})
 
 	app.Post("/", func(ctx iris.Context) {
