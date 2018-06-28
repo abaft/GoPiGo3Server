@@ -120,6 +120,7 @@ func main() {
 	car0.init()
 	car1_direct.init()
 	car1.init()
+	direct = true
 
 	port := 25565
 
