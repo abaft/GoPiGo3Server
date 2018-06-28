@@ -13,7 +13,7 @@ import (
 	//"time"
 )
 
-func (b bool) format() string {
+func formatBool(b bool) string {
 	if b {
 		return "1"
 	} else {
@@ -75,17 +75,17 @@ func handler(conn *net.UDPConn, addr *net.UDPAddr, r []byte) {
 
 	if spStr[0] == "C0" {
 		if direct {
-			copy(tmp[:], []byte(strconv.Itoa(car0_direct.LEFT_M.Load().(int))+","+strconv.Itoa(car0_direct.RIGHT_M.Load().(int))+","+car0_direct.OVERRIDE.Load().(bool).format))
+			copy(tmp[:], []byte(strconv.Itoa(car0_direct.LEFT_M.Load().(int))+","+strconv.Itoa(car0_direct.RIGHT_M.Load().(int))+","+formatBool(car0_direct.OVERRIDE.Load().(bool))))
 		} else {
-			copy(tmp[:], []byte(strconv.Itoa(car0.LEFT_M.Load().(int))+","+strconv.Itoa(car0.RIGHT_M.Load().(int))+","+car0.OVERRIDE.Load().(bool).format))
+			copy(tmp[:], []byte(strconv.Itoa(car0.LEFT_M.Load().(int))+","+strconv.Itoa(car0.RIGHT_M.Load().(int))+","+formatBool(car0.OVERRIDE.Load().(bool))))
 		}
 	}
 
 	if spStr[0] == "C1" {
 		if direct {
-			copy(tmp[:], []byte(strconv.Itoa(car1_direct.LEFT_M.Load().(int))+","+strconv.Itoa(car1_direct.RIGHT_M.Load().(int))+","+car1_direct.OVERRIDE.Load().(bool).format))
+			copy(tmp[:], []byte(strconv.Itoa(car1_direct.LEFT_M.Load().(int))+","+strconv.Itoa(car1_direct.RIGHT_M.Load().(int))+","+formatBool(car1_direct.OVERRIDE.Load().(bool))))
 		} else {
-			copy(tmp[:], []byte(strconv.Itoa(car1.LEFT_M.Load().(int))+","+strconv.Itoa(car1.RIGHT_M.Load().(int))+","+car0.OVERRIDE.Load().(bool).format))
+			copy(tmp[:], []byte(strconv.Itoa(car1.LEFT_M.Load().(int))+","+strconv.Itoa(car1.RIGHT_M.Load().(int))+","+formatBool(car0.OVERRIDE.Load().(bool))))
 		}
 	}
 	conn.WriteToUDP(tmp, addr)
