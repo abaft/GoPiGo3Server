@@ -120,9 +120,10 @@ func main() {
 	car0.init()
 	car1_direct.init()
 	car1.init()
+
 	direct = true
 
-	port := 25565
+	port := 3322
 
 	app := iris.New()
 	setupWebsocket(app)
@@ -134,19 +135,26 @@ func main() {
             <form method='post'>
             <table>
             <tr>
-            <td>LEFT</td>
-            <td>RIGHT</td>
+            <td>LEFT0</td>
+            <td>RIGHT0</td>
+            <td>LEFT1</td>
+            <td>RIGHT1</td>
             </tr>
             <tr>
             <td>%d Power</td>
             <td>%d Power</td>
+            <td>%d Power</td>
+            <td>%d Power</td>
             </tr>
             <tr>
-            <td><input type='text' name='LEFT' value='%d'></td>
-            <td><input type='text' name='RIGHT' value='%d'></td>
+            <td><input type='text' name='LEFT0' value='%d'></td>
+            <td><input type='text' name='RIGHT0' value='%d'></td>
+            <td><input type='text' name='LEFT1' value='%d'></td>
+            <td><input type='text' name='RIGHT1' value='%d'></td>
             </tr>
             </table>
-            <button type='submit'>Send Command</button>
+            <button type='submit' name="sub" value="0">Send Command</button>
+            <button type='submit' name="sub" value="1">Send global STOP</button>
             </form>
             Round Trip Latancy: <pre id="output">%ss</pre>
             <script src="/iris-ws.js"></script>
@@ -162,18 +170,35 @@ var socket = new Ws(wsURL)
     });
             </script>
             </body>
-          </html>`, car0_direct.LEFT_M.Load().(int), car0_direct.RIGHT_M.Load().(int), car0_direct.LEFT_M.Load().(int), car0_direct.RIGHT_M.Load().(int), car0_direct.LATANCY.Load().(string))
+          </html>`, car0_direct.LEFT_M.Load().(int), car0_direct.RIGHT_M.Load().(int),
+			car1_direct.LEFT_M.Load().(int), car1_direct.RIGHT_M.Load().(int),
+			car0_direct.LEFT_M.Load().(int), car0_direct.RIGHT_M.Load().(int),
+			car1_direct.LEFT_M.Load().(int), car1_direct.RIGHT_M.Load().(int), car0_direct.LATANCY.Load().(string))
 	})
 
 	app.Post("/", func(ctx iris.Context) {
 
-		LEFT_M_tmp, _ := ctx.PostValueInt("LEFT")
-		car0_direct.LEFT_M.Store(LEFT_M_tmp)
-		car1_direct.LEFT_M.Store(LEFT_M_tmp)
+		if sub, _ := ctx.PostValueInt("sub"); sub == 0 {
+			LEFT_M_tmp, _ := ctx.PostValueInt("LEFT0")
+			car0_direct.LEFT_M.Store(LEFT_M_tmp)
+			LEFT_M_tmp, _ = ctx.PostValueInt("LEFT1")
+			car1_direct.LEFT_M.Store(LEFT_M_tmp)
 
-		RIGHT_M_tmp, _ := ctx.PostValueInt("RIGHT")
-		car0_direct.RIGHT_M.Store(RIGHT_M_tmp)
-		car1_direct.RIGHT_M.Store(RIGHT_M_tmp)
+			RIGHT_M_tmp, _ := ctx.PostValueInt("RIGHT0")
+			car0_direct.RIGHT_M.Store(RIGHT_M_tmp)
+			RIGHT_M_tmp, _ = ctx.PostValueInt("RIGHT1")
+			car1_direct.RIGHT_M.Store(RIGHT_M_tmp)
+
+		} else if sub, _ := ctx.PostValueInt("sub"); sub == 1 {
+
+			car0_direct.LEFT_M.Store(0)
+			car1_direct.LEFT_M.Store(0)
+
+			car0_direct.RIGHT_M.Store(0)
+			car1_direct.RIGHT_M.Store(0)
+
+		}
+
 		ctx.Redirect("/", 302)
 	})
 	go app.Run(iris.Addr(":25565"))
