@@ -13,10 +13,35 @@ import (
 	//"time"
 )
 
-var (
-	RIGHT_M atomic.Value
-	LEFT_M  atomic.Value
+func (b bool) format() string {
+	if b {
+		return "1"
+	} else {
+		return "0"
+	}
+}
+
+type car struct {
+	RIGHT_M  atomic.Value
+	LEFT_M   atomic.Value
 	LATANCY  atomic.Value
+	OVERRIDE atomic.Value
+}
+
+func (c *car) init() {
+	c.LATANCY.Store(string("N/A"))
+	c.LEFT_M.Store(0)
+	c.RIGHT_M.Store(0)
+	c.OVERRIDE.Store(false)
+}
+
+var (
+	car0_direct car
+	car0        car
+	car1_direct car
+	car1        car
+
+	direct bool
 )
 
 func SocketServer(port int) {
@@ -44,13 +69,28 @@ func SocketServer(port int) {
 
 func handler(conn *net.UDPConn, addr *net.UDPAddr, r []byte) {
 
-	tmp := make([]byte, 32)
-	// SCHEMA 0,0
-	copy(tmp[:], []byte(strconv.Itoa(LEFT_M.Load().(int))+","+strconv.Itoa(RIGHT_M.Load().(int))))
-	conn.WriteToUDP(tmp, addr)
 	spStr := strings.Split(string(r), ",")
-        //latancy, _ := strconv.ParseFloat(spStr[len(spStr)-1], 64)
-        LATANCY.Store(spStr[len(spStr)-1])
+
+	tmp := make([]byte, 32)
+
+	if spStr[0] == "C0" {
+		if direct {
+			copy(tmp[:], []byte(strconv.Itoa(car0_direct.LEFT_M.Load().(int))+","+strconv.Itoa(car0_direct.RIGHT_M.Load().(int))+","+car0_direct.OVERRIDE.Load().(bool).format))
+		} else {
+			copy(tmp[:], []byte(strconv.Itoa(car0.LEFT_M.Load().(int))+","+strconv.Itoa(car0.RIGHT_M.Load().(int))+","+car0.OVERRIDE.Load().(bool).format))
+		}
+	}
+
+	if spStr[0] == "C1" {
+		if direct {
+			copy(tmp[:], []byte(strconv.Itoa(car1_direct.LEFT_M.Load().(int))+","+strconv.Itoa(car1_direct.RIGHT_M.Load().(int))+","+car1_direct.OVERRIDE.Load().(bool).format))
+		} else {
+			copy(tmp[:], []byte(strconv.Itoa(car1.LEFT_M.Load().(int))+","+strconv.Itoa(car1.RIGHT_M.Load().(int))+","+car0.OVERRIDE.Load().(bool).format))
+		}
+	}
+	conn.WriteToUDP(tmp, addr)
+
+	car0_direct.LATANCY.Store(spStr[len(spStr)-1])
 
 	log.Println("RECEIVED: " + string(r))
 	log.Println("SENT: " + string(tmp))
@@ -76,9 +116,20 @@ func setupWebsocket(app *iris.Application) {
 
 func main() {
 
+	car0_direct.LATANCY.Store(string("N/A"))
+	car0.LATANCY.Store(string("N/A"))
+	car1_direct.LATANCY.Store(string("N/A"))
+	car1.LATANCY.Store(string("N/A"))
+
 	port := 3322
-	LEFT_M.Store(0)
-	RIGHT_M.Store(0)
+	car0_direct.LEFT_M.Store(0)
+	car0.LEFT_M.Store(0)
+	car1_direct.LEFT_M.Store(0)
+	car1.LEFT_M.Store(0)
+	car0_direct.RIGHT_M.Store(0)
+	car0.RIGHT_M.Store(0)
+	car1_direct.RIGHT_M.Store(0)
+	car1.RIGHT_M.Store(0)
 
 	app := iris.New()
 	setupWebsocket(app)
@@ -104,7 +155,7 @@ func main() {
             </table>
             <button type='submit'>Send Command</button>
             </form>
-            Round Trip Latancy: <pre id="output">%s</pre>
+            Round Trip Latancy: <pre id="output">%ss</pre>
             <script src="/iris-ws.js"></script>
             <script>
     var scheme = document.location.protocol == "https:" ? "wss" : "ws";
@@ -118,16 +169,18 @@ var socket = new Ws(wsURL)
     });
             </script>
             </body>
-          </html>`, LEFT_M.Load().(int), RIGHT_M.Load().(int), LEFT_M.Load().(int), RIGHT_M.Load().(int), LATANCY.Load().(string))
+          </html>`, car0_direct.LEFT_M.Load().(int), car0_direct.RIGHT_M.Load().(int), car0_direct.LEFT_M.Load().(int), car0_direct.RIGHT_M.Load().(int), car0_direct.LATANCY.Load().(string))
 	})
 
 	app.Post("/", func(ctx iris.Context) {
 
 		LEFT_M_tmp, _ := ctx.PostValueInt("LEFT")
-		LEFT_M.Store(LEFT_M_tmp)
+		car0_direct.LEFT_M.Store(LEFT_M_tmp)
+		car1_direct.LEFT_M.Store(LEFT_M_tmp)
 
 		RIGHT_M_tmp, _ := ctx.PostValueInt("RIGHT")
-		RIGHT_M.Store(RIGHT_M_tmp)
+		car0_direct.RIGHT_M.Store(RIGHT_M_tmp)
+		car1_direct.RIGHT_M.Store(RIGHT_M_tmp)
 		ctx.Redirect("/", 302)
 	})
 	go app.Run(iris.Addr(":25565"))
