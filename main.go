@@ -116,20 +116,12 @@ func setupWebsocket(app *iris.Application) {
 
 func main() {
 
-	car0_direct.LATANCY.Store(string("N/A"))
-	car0.LATANCY.Store(string("N/A"))
-	car1_direct.LATANCY.Store(string("N/A"))
-	car1.LATANCY.Store(string("N/A"))
+	car0_direct.init()
+	car0.init()
+	car1_direct.init()
+	car1.init()
 
-	port := 3322
-	car0_direct.LEFT_M.Store(0)
-	car0.LEFT_M.Store(0)
-	car1_direct.LEFT_M.Store(0)
-	car1.LEFT_M.Store(0)
-	car0_direct.RIGHT_M.Store(0)
-	car0.RIGHT_M.Store(0)
-	car1_direct.RIGHT_M.Store(0)
-	car1.RIGHT_M.Store(0)
+	port := 25565
 
 	app := iris.New()
 	setupWebsocket(app)
